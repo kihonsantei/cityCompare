@@ -9,6 +9,7 @@ const webpack = require("webpack");
 //const cesiumBuild = './node_modules/cesium/Build/Cesium';
 
 module.exports = defineConfig({
+  base:"cityCompare"
   transpileDependencies: true,
 
   // Webpack配置项
