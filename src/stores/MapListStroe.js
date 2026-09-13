@@ -2,6 +2,9 @@ import { defineStore } from "pinia"
 import {ref} from 'vue'
 import { useMapZoomStore } from "./BallScalingStore"
 import { ComponentListStore } from "./MapComponentStore"
+import { ballstateStore } from "./ballstateStore"
+import { pickCenterStore } from "./PickCenterStore"
+import { CoordDetermine } from "./CreateMapCoordDetemineFeatureStore"
 
 
 export const MapListStore=defineStore('mapViews',()=>{
@@ -43,6 +46,14 @@ export const MapListStore=defineStore('mapViews',()=>{
     }
     function deleteOldView(id) {
     if (views.value[id]) {
+        const ballstate = ballstateStore()
+        const pickcenter = pickCenterStore()
+        const coorddetermine = CoordDetermine()
+        for (const picker of [pickcenter, coorddetermine]) {
+            if (String(picker.viewId) === String(id)) picker.cancelPicking()
+        }
+        if (String(ballstate.currentleftid) === String(id)) ballstate.currentleftid = 0
+        if (String(ballstate.currentrightid) === String(id)) ballstate.currentrightid = 0
         delete views.value[id]
         mapzoomstate.deleteZoom(id)
         componentliststore.deleteStyle(id)

@@ -260,6 +260,8 @@ export const DrawBallMap = defineStore("DrawBallMap", () => {
             () => leftBallCenter.value,
             () => rightBallCenter.value,
             () => componentliststore.style,
+            () => mapliststore.views[ballstate.currentleftid]?.name,
+            () => mapliststore.views[ballstate.currentrightid]?.name,
         ],
         () => {
             console.log("update layer")

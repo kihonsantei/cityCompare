@@ -9,7 +9,7 @@
             <span>左球</span>
             <select class="input-box" ball="left" v-model="ballstate.currentleftid">
               <option value=0 viewid="0">空球</option>
-              <option v-for="(view, viewid) in mapviewstore.views" :key="view.name" :value="viewid" :viewid="viewid">{{
+              <option v-for="(view, viewid) in mapviewstore.views" :key="viewid" :value="viewid" :viewid="viewid">{{
                 view.name }}</option>
             </select>
           </div>
@@ -20,7 +20,7 @@
             <span>右球</span>
             <select class="input-box" ball="right" v-model="ballstate.currentrightid">
               <option value=0 viewid="0">空球</option>
-              <option v-for="(view, viewid) in mapviewstore.views" :key="view.name" :value="viewid" :viewid="viewid">{{
+              <option v-for="(view, viewid) in mapviewstore.views" :key="viewid" :value="viewid" :viewid="viewid">{{
                 view.name }}</option>
             </select>
           </div>
@@ -124,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, watch, watchEffect, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { MapListStore } from '@/stores/MapListStroe'
 import { ballstateStore } from '@/stores/ballstateStore'
 import { pickCenterStore } from '@/stores/PickCenterStore'
@@ -157,48 +157,29 @@ watch(() => noweditball, (newVal) => {
 }, { deep: true })
 
 //现在editd的id要通过noweditball和ball自身的状态来获得
-const currenteditid = ref(0)
-
-//反正就是不管是没在编辑还是主球是空,体现在纸面上就是currenteditid=0
-watchEffect(() => {
-  if (noweditball.value == "left") {
-    currenteditid.value = ballstate.currentleftid
-  }
-  else if (noweditball.value == "right") {
-    currenteditid.value = ballstate.currentrightid
-  }
-  else {
-    currenteditid.value = 0
-  }
-  console.log("更新currentid到" + currenteditid.value)
+const currenteditid = computed(() => {
+  const id = ballstate.getcurrentid(noweditball.value)
+  return mapviewstore.views[id] ? id : 0
 })
 
-const currenteditview = ref("null")
+const currenteditview = computed(() => mapviewstore.views[currenteditid.value] || {})
+const currenteditstyle = computed(() => componentliststore.style[currenteditid.value] || {})
 
-watch(currenteditid, (newVal) => {
-  if (newVal == 0) {
-    //如果是0怎么处理d
-    currenteditview.value = {
+// 切换编辑对象、地图视图或删除城市时，立即取消原来的拾取。
+watch(
+  [noweditball, () => ballstate.currentleftid, () => ballstate.currentrightid, currenteditid],
+  () => {
+    for (const picker of [pickcenterstore, coorddetermine]) {
+      if (picker.isPicking && (
+        picker.editball !== noweditball.value ||
+        String(picker.viewId) !== String(currenteditid.value)
+      )) {
+        picker.cancelPicking()
+      }
     }
-  }
-  else {
-    currenteditview.value = mapviewstore.views[newVal]
-  }
-})
-
-
-
-const currenteditstyle = ref("null")
-watch(currenteditid, (newVal) => {
-  if (newVal == 0) {
-    //如果是0怎么处理
-    currenteditstyle.value = {
-    }
-  }
-  else {
-    currenteditstyle.value = componentliststore.style[newVal]
-  }
-})
+  },
+  { flush: 'sync' }
+)
 
 //创建新球的函数
 
@@ -225,34 +206,23 @@ function createNewBall() {
 }
 
 function deleteNowBall() {
-  if (noweditball.value == "left") {
-    const todelid = ballstate.currentleftid
-    ballstate.currentleftid = 0
-    mapviewstore.deleteOldView(todelid)
-    console.log("删除的ID是", todelid)
-  }
-  else if (noweditball.value == "right") {
-    const todelid = ballstate.currentrightid
-    ballstate.currentrightid = 0
-    mapviewstore.deleteOldView(todelid)
-    console.log("删除的ID是", todelid)
-
-  }
-
-
+  if (currenteditid.value > 0) mapviewstore.deleteOldView(currenteditid.value)
 }
 
 function handlePickClick() {
   //noeditball有left right和null三种类型，每个球收到之后看看符不符合自己吧
-  pickcenterstore.startPicking(noweditball.value)
+  if (!currenteditid.value) return
+  coorddetermine.cancelPicking()
+  pickcenterstore.startPicking(noweditball.value, currenteditid.value)
 }
 
 //结束拾取的话，就把这个坐标加上
 watch(
   () => pickcenterstore.isPicking, // 
   (newVal, oldVal) => {
-    if (!newVal && oldVal) {
-      currenteditview.value.center = pickcenterstore.pickedCoord
+    const view = mapviewstore.views[pickcenterstore.viewId]
+    if (!newVal && oldVal && pickcenterstore.pickedCoord && view) {
+      view.center = pickcenterstore.pickedCoord
       console.log("控制区已设定中心坐标")
       console.log("现在的mapview是", mapviewstore)
     }
@@ -335,21 +305,23 @@ function deleteItem(index) {
 const tocreatetype = ref("point")
 const tocreatename = ref("新地")
 function createmapcoorddetemineFeature() {
-  coorddetermine.startPicking(noweditball.value, tocreatetype.value)
+  if (!currenteditid.value || currenteditview.value.center?.length !== 2) return
+  pickcenterstore.cancelPicking()
+  coorddetermine.startPicking(noweditball.value, tocreatetype.value, currenteditid.value, tocreatename.value)
 }
 
 //拾取结束后
 watch(
   () => coorddetermine.isPicking, // 
   (newVal, oldVal) => {
-    if (!newVal && oldVal) {
+    if (!newVal && oldVal && coorddetermine.pickedCoord && mapviewstore.views[coorddetermine.viewId]) {
       const geom = {
-        "name": tocreatename.value,
-        "type": tocreatetype.value,
+        "name": coorddetermine.featureName,
+        "type": coorddetermine.coordtype,
         "dist": coorddetermine.pickedCoord["distance"],
         "direction": coorddetermine.pickedCoord["bearing"]
       }
-      componentliststore.addGeometryToStyle(currenteditid.value, geom)
+      componentliststore.addGeometryToStyle(coorddetermine.viewId, geom)
       tocreatename.value = "新地"
       //console.log("把", coorddetermine.pickedCoord, "上传给", currenteditid.value)
     }

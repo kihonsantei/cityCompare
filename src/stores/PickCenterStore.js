@@ -6,16 +6,24 @@ export const pickCenterStore = defineStore('mapCenterDetermine', () => {
   const isPicking = ref(false)
   const pickedCoord = ref(null)
   const editball=ref("null")
+  const viewId = ref(null)
   //开始拾取时
-  function startPicking(noweditball) {
+  function startPicking(noweditball, targetViewId) {
     console.log("Pickcenter组件开始拾取")
-    isPicking.value = true
     pickedCoord.value = null
     //把正在编辑的ball设置成noweditball
     editball.value=noweditball
+    viewId.value = targetViewId
+    isPicking.value = true
+  }
+
+  function cancelPicking() {
+    pickedCoord.value = null
+    isPicking.value = false
   }
 
   function finishPicking(coord) {
+    if (!isPicking.value) return
     console.log("Pickcenter组件结束拾取")
     pickedCoord.value = coord
     isPicking.value = false
@@ -26,7 +34,9 @@ export const pickCenterStore = defineStore('mapCenterDetermine', () => {
     isPicking,
     pickedCoord,
     editball,
+    viewId,
     startPicking,
+    cancelPicking,
     finishPicking
   }
 })

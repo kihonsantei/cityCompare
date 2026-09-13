@@ -64,6 +64,8 @@ const pickcenter = pickCenterStore()
 function setupPickingWatcher() {
   // 1. 在外层定义 clickHandler，保证引用一致
   const clickHandler = (e) => {
+    if (!pickcenter.isPicking || pickcenter.editball !== props.id ||
+      String(pickcenter.viewId) !== String(currentBallId.value)) return
     const coord = [e.latlng.lng, e.latlng.lat]
     pickcenter.finishPicking(coord)
   }
@@ -91,13 +93,20 @@ function setupCoordWatcher() {
   // Point 拾取：点击地图时触发
   //转换成geolib的格式
   const pointClickHandler = (e) => {
+    if (!coorddetermine.isPicking || coorddetermine.editball !== props.id ||
+      String(coorddetermine.viewId) !== String(currentBallId.value)) return
+    const view = mapliststore.views[coorddetermine.viewId]
+    if (view?.center?.length !== 2) {
+      coorddetermine.cancelPicking()
+      return
+    }
     const coord = {
       latitude: e.latlng.lat,
       longitude: e.latlng.lng
     }
     const centerpoint = {
-      latitude: mapliststore.views[currentBallId.value].center[1],
-      longitude: mapliststore.views[currentBallId.value].center[0]
+      latitude: view.center[1],
+      longitude: view.center[0]
     }
 
     const newcoord = computeDistanceAndBearing(centerpoint, coord, "single")
